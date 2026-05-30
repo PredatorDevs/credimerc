@@ -5,6 +5,7 @@ import 'core/network/api_config.dart';
 import 'core/permissions/permission_service.dart';
 import 'core/session/session_controller.dart';
 import 'core/session/session_store.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_api.dart';
 import 'features/auth/presentation/home_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -74,9 +75,7 @@ class CrediMercApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'CrediMerc',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
-      ),
+      theme: CrediMercTheme.light(),
       home: _BootstrapGate(
         sessionController: sessionController,
         customersApi: customersApi,
