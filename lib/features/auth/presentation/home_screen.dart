@@ -101,6 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AnimatedBuilder(
       animation: widget.sessionController,
       builder: (context, _) {
@@ -108,17 +110,49 @@ class _HomeScreenState extends State<HomeScreen> {
         final user = profile['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
         final companies = widget.sessionController.companies;
         final activeCompanyId = widget.sessionController.activeCompanyId;
+        final fullName = user['fullName']?.toString().trim().isNotEmpty == true
+            ? user['fullName'].toString()
+            : 'Usuario';
+        final email = user['email']?.toString().trim().isNotEmpty == true
+            ? user['email'].toString()
+            : '-';
+        final userStatus = user['status']?.toString().trim().isNotEmpty == true
+            ? user['status'].toString()
+            : '-';
 
         _selectedCompanyId ??= activeCompanyId;
         final availableCompanyIds = companies.map((c) => c.id).toSet();
         final dropdownValue = availableCompanyIds.contains(_selectedCompanyId)
           ? _selectedCompanyId
           : null;
+        final activeCompany = companies.where((c) => c.id == activeCompanyId).cast<CompanyMembership?>().firstOrNull;
+        final selectedCompany = companies.where((c) => c.id == dropdownValue).cast<CompanyMembership?>().firstOrNull;
 
         return Scaffold(
+          extendBodyBehindAppBar: true,
           appBar: AppBar(
-            title: const Text('CrediMerc'),
+            title: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.75),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Image.asset('lib/assets/credimerclogo.png', fit: BoxFit.contain),
+                ),
+                const SizedBox(width: 10),
+                const Text('CrediMerc'),
+              ],
+            ),
             actions: [
+              IconButton(
+                tooltip: 'Validar permisos',
+                onPressed: _validatePermissions,
+                icon: const Icon(Icons.verified_user_outlined),
+              ),
               IconButton(
                 tooltip: 'Cerrar sesion',
                 onPressed: () => widget.sessionController.logout(),
@@ -126,106 +160,584 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bienvenido, ${user['fullName'] ?? 'Usuario'}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text('Email: ${user['email'] ?? '-'}'),
-                const SizedBox(height: 8),
-                Text('Estado: ${user['status'] ?? '-'}'),
-                const SizedBox(height: 20),
-                Text(
-                  'Empresa activa',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  value: dropdownValue,
-                  items: companies
-                      .map(
-                        (CompanyMembership company) => DropdownMenuItem<int>(
-                          value: company.id,
-                          child: Text('${company.name} (#${company.id})'),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: companies.isEmpty
-                      ? null
-                      : (value) {
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  colorScheme.primary.withOpacity(0.09),
+                  Theme.of(context).scaffoldBackgroundColor,
+                  colorScheme.secondary.withOpacity(0.06),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -90,
+                    right: -30,
+                    child: _HomeGlowBlob(color: colorScheme.secondary.withOpacity(0.14), size: 190),
+                  ),
+                  Positioned(
+                    bottom: -100,
+                    left: -70,
+                    child: _HomeGlowBlob(color: colorScheme.primary.withOpacity(0.12), size: 240),
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    children: [
+                      _DashboardHeroCard(
+                        fullName: fullName,
+                        email: email,
+                        userStatus: userStatus,
+                        activeCompanyName: activeCompany?.name,
+                        activeCompanyId: activeCompanyId,
+                        selectedCompanyName: selectedCompany?.name,
+                        onRefreshCompanies: widget.sessionController.refreshCompanies,
+                        onOpenPermissions: _validatePermissions,
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionHeader(
+                        title: 'Accesos rapidos',
+                        subtitle: 'Entradas directas a las areas que usas con mas frecuencia.',
+                      ),
+                      const SizedBox(height: 10),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.08,
+                        children: [
+                          _ShortcutCard(
+                            icon: Icons.people_alt_outlined,
+                            title: 'Clientes',
+                            description: 'Alta, busqueda y documentos.',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => CustomersScreen(
+                                    customersApi: widget.customersApi,
+                                    filesApi: widget.filesApi,
+                                    permissionService: widget.permissionService,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          _ShortcutCard(
+                            icon: Icons.account_balance_wallet_outlined,
+                            title: 'Prestamos',
+                            description: 'Crea, revisa y administra saldos.',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => LoansScreen(
+                                    loansApi: widget.loansApi,
+                                    paymentsApi: widget.paymentsApi,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          _ShortcutCard(
+                            icon: Icons.payments_outlined,
+                            title: 'Pagos',
+                            description: 'Registra y anula abonos rapido.',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => LoansScreen(
+                                    loansApi: widget.loansApi,
+                                    paymentsApi: widget.paymentsApi,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          _ShortcutCard(
+                            icon: Icons.folder_open_outlined,
+                            title: 'Adjuntos',
+                            description: 'Documentos, fotos e identidad.',
+                            onTap: _validatePermissions,
+                            emphasize: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionHeader(
+                        title: 'Empresa activa',
+                        subtitle: 'Selecciona el contexto operativo antes de gestionar cartera.',
+                      ),
+                      const SizedBox(height: 10),
+                      _CompanySwitchCard(
+                        companies: companies,
+                        dropdownValue: dropdownValue,
+                        selectedCompanyId: _selectedCompanyId,
+                        onSelectedCompanyChanged: (value) {
                           setState(() {
                             _selectedCompanyId = value;
                           });
                         },
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
+                        onApply: companies.isEmpty ? null : _applyCompanyChange,
+                        onRefresh: widget.sessionController.refreshCompanies,
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionHeader(
+                        title: 'Siguiente paso sugerido',
+                        subtitle: 'Una pequeña guia para seguir el flujo operativo sin perder contexto.',
+                      ),
+                      const SizedBox(height: 10),
+                      _ChecklistCard(
+                        items: const [
+                          'Crear o revisar clientes con documentos cargados.',
+                          'Abrir un prestamo y registrar su primer pago.',
+                          'Validar permisos antes de subir adjuntos.',
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    FilledButton(
-                      onPressed: companies.isEmpty ? null : _applyCompanyChange,
-                      child: const Text('Cambiar empresa'),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: widget.sessionController.refreshCompanies,
-                      child: const Text('Recargar'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text('Empresa activa actual: ${activeCompanyId ?? '-'}'),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => CustomersScreen(
-                          customersApi: widget.customersApi,
-                          filesApi: widget.filesApi,
-                          permissionService: widget.permissionService,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.people),
-                  label: const Text('Ir a clientes'),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => LoansScreen(
-                          loansApi: widget.loansApi,
-                          paymentsApi: widget.paymentsApi,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.account_balance_wallet),
-                  label: const Text('Ir a prestamos'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _validatePermissions,
-                  icon: const Icon(Icons.security),
-                  label: const Text('Validar permisos'),
-                ),
-                const SizedBox(height: 10),
-                const Text('Base de integracion lista para conectar modulos de negocio.'),
-              ],
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _DashboardHeroCard extends StatelessWidget {
+  const _DashboardHeroCard({
+    required this.fullName,
+    required this.email,
+    required this.userStatus,
+    required this.activeCompanyName,
+    required this.activeCompanyId,
+    required this.selectedCompanyName,
+    required this.onRefreshCompanies,
+    required this.onOpenPermissions,
+  });
+
+  final String fullName;
+  final String email;
+  final String userStatus;
+  final String? activeCompanyName;
+  final int? activeCompanyId;
+  final String? selectedCompanyName;
+  final VoidCallback onRefreshCompanies;
+  final VoidCallback onOpenPermissions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2ECE7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bienvenido, $fullName',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.7,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      email,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 56,
+                height: 56,
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: colorScheme.secondary.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Image.asset('lib/assets/credimerclogo.png', fit: BoxFit.contain),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _InfoPill(
+                icon: Icons.verified_user_outlined,
+                label: 'Estado: $userStatus',
+              ),
+              _InfoPill(
+                icon: Icons.apartment_outlined,
+                label: activeCompanyName != null
+                    ? 'Activa: $activeCompanyName (#${activeCompanyId ?? '-'})'
+                    : 'Sin empresa activa',
+              ),
+              if (selectedCompanyName != null)
+                _InfoPill(
+                  icon: Icons.swap_horiz,
+                  label: 'Seleccionada: $selectedCompanyName',
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onRefreshCompanies,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Actualizar empresas'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onOpenPermissions,
+                  icon: const Icon(Icons.security_outlined),
+                  label: const Text('Permisos'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShortcutCard extends StatelessWidget {
+  const _ShortcutCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+    this.emphasize = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(emphasize ? 0.92 : 0.84),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: emphasize ? colorScheme.secondary.withOpacity(0.28) : const Color(0xFFE2ECE7),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: emphasize ? colorScheme.secondary.withOpacity(0.18) : colorScheme.primary.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: colorScheme.onSurface, size: 22),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompanySwitchCard extends StatelessWidget {
+  const _CompanySwitchCard({
+    required this.companies,
+    required this.dropdownValue,
+    required this.selectedCompanyId,
+    required this.onSelectedCompanyChanged,
+    required this.onApply,
+    required this.onRefresh,
+  });
+
+  final List<CompanyMembership> companies;
+  final int? dropdownValue;
+  final int? selectedCompanyId;
+  final ValueChanged<int?> onSelectedCompanyChanged;
+  final Future<void> Function()? onApply;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2ECE7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<int>(
+            value: dropdownValue,
+            items: companies
+                .map(
+                  (CompanyMembership company) => DropdownMenuItem<int>(
+                    value: company.id,
+                    child: Text('${company.name} (#${company.id})'),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: companies.isEmpty ? null : onSelectedCompanyChanged,
+            decoration: const InputDecoration(
+              labelText: 'Empresa activa',
+              prefixIcon: Icon(Icons.apartment_outlined),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: companies.isEmpty ? null : onApply,
+                  child: const Text('Cambiar empresa'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onRefresh,
+                  child: const Text('Recargar'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            selectedCompanyId != null
+                ? 'Contexto seleccionado: #$selectedCompanyId'
+                : 'Selecciona una empresa para trabajar con su cartera.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChecklistCard extends StatelessWidget {
+  const _ChecklistCard({required this.items});
+
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2ECE7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in items) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.check,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      item,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            height: 1.35,
+                          ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeGlowBlob extends StatelessWidget {
+  const _HomeGlowBlob({
+    required this.color,
+    required this.size,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

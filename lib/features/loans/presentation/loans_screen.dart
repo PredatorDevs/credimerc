@@ -75,7 +75,14 @@ class _LoansScreenState extends State<LoansScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openCreateModal,
+        icon: const Icon(Icons.add_card),
+        label: const Text('Nuevo prestamo'),
+      ),
       appBar: AppBar(
         title: const Text('Prestamos'),
         actions: [
@@ -86,39 +93,80 @@ class _LoansScreenState extends State<LoansScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreateModal,
-        icon: const Icon(Icons.add_card),
-        label: const Text('Nuevo prestamo'),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              colorScheme.primary.withOpacity(0.08),
+              Theme.of(context).scaffoldBackgroundColor,
+              colorScheme.secondary.withOpacity(0.05),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              _LoansHeroCard(
+                loanCount: _items.length,
+                totalBalance: _items.fold<double>(0, (sum, item) => sum + item.balanceAmount),
+                overdueCount: _items.where((item) => item.status == 'OVERDUE').length,
+                onRefresh: _loadLoans,
+                onCreateLoan: _openCreateModal,
+              ),
+              const SizedBox(height: 18),
+              _SectionHeader(
+                title: 'Cartera',
+                subtitle: 'Seguimiento operativo de préstamos y su saldo vigente.',
+              ),
+              const SizedBox(height: 10),
+              _buildBody(),
+            ],
+          ),
+        ),
       ),
-      body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_error != null) {
-      return Center(child: Text(_error!));
+      return _EmptyStateCard(
+        icon: Icons.error_outline,
+        title: 'No pudimos cargar prestamos',
+        message: _error!,
+        actionLabel: 'Reintentar',
+        onAction: _loadLoans,
+      );
     }
 
     if (_items.isEmpty) {
-      return const Center(child: Text('No hay prestamos registrados.'));
+      return _EmptyStateCard(
+        icon: Icons.account_balance_wallet_outlined,
+        title: 'Aun no hay prestamos',
+        message: 'Crea el primer préstamo para iniciar la cartera y registrar pagos.',
+        actionLabel: 'Nuevo prestamo',
+        onAction: _openCreateModal,
+      );
     }
 
     return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: _items.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final loan = _items[index];
-        return ListTile(
-          title: Text('${loan.loanNumber} - ${loan.customerName}'),
-          subtitle: Text(
-            'Principal: ${loan.principalAmount.toStringAsFixed(2)} | Saldo: ${loan.balanceAmount.toStringAsFixed(2)}',
-          ),
-          trailing: Chip(label: Text(loan.status)),
+        return _LoanCard(
+          loan: loan,
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -131,6 +179,379 @@ class _LoansScreenState extends State<LoansScreen> {
           },
         );
       },
+    );
+  }
+}
+
+class _LoansHeroCard extends StatelessWidget {
+  const _LoansHeroCard({
+    required this.loanCount,
+    required this.totalBalance,
+    required this.overdueCount,
+    required this.onRefresh,
+    required this.onCreateLoan,
+  });
+
+  final int loanCount;
+  final double totalBalance;
+  final int overdueCount;
+  final VoidCallback onRefresh;
+  final VoidCallback onCreateLoan;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2ECE7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cartera',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.7,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Visualiza el pulso de tu negocio: volumen, saldo y mora al instante.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: colorScheme.secondary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(Icons.account_balance_wallet_outlined, color: colorScheme.secondary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _MiniStatPill(label: 'Prestamos', value: '$loanCount'),
+              _MiniStatPill(label: 'Saldo total', value: totalBalance.toStringAsFixed(2)),
+              _MiniStatPill(label: 'En mora', value: '$overdueCount'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onCreateLoan,
+                  icon: const Icon(Icons.add_card),
+                  label: const Text('Nuevo prestamo'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Actualizar'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoanCard extends StatelessWidget {
+  const _LoanCard({
+    required this.loan,
+    required this.onTap,
+  });
+
+  final Loan loan;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColor = switch (loan.status) {
+      'PAID' => const Color(0xFF0E9F7A),
+      'OVERDUE' => const Color(0xFFB42318),
+      'CANCELLED' => const Color(0xFF7A7A7A),
+      _ => colorScheme.primary,
+    };
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE2ECE7)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(Icons.payments_outlined, color: colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${loan.loanNumber} · ${loan.customerName}',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Inicio: ${loan.startDate} · Vence: ${loan.dueDate}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Chip(
+                  label: Text(loan.status),
+                  backgroundColor: statusColor.withOpacity(0.10),
+                  side: BorderSide(color: statusColor.withOpacity(0.20)),
+                  labelStyle: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricPill(label: 'Principal', value: loan.principalAmount.toStringAsFixed(2)),
+                _MetricPill(label: 'Total', value: loan.totalAmount.toStringAsFixed(2)),
+                _MetricPill(label: 'Saldo', value: loan.balanceAmount.toStringAsFixed(2)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  'Toca para ver pagos y movimientos',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.88),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2ECE7)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 42, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: onAction,
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStatPill extends StatelessWidget {
+  const _MiniStatPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$label: $value',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7F5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
