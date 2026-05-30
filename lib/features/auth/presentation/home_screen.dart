@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/permissions/permission_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../customers/data/customers_api.dart';
 import '../../customers/presentation/customers_screen.dart';
@@ -28,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int? _selectedCompanyId;
+  final PermissionService _permissionService = PermissionService();
 
   @override
   void initState() {
@@ -59,6 +61,38 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Empresa activa actualizada.')),
     );
+  }
+
+  Future<void> _validatePermissions() async {
+    final result = await _permissionService.requestMediaPermissions();
+    if (!mounted) {
+      return;
+    }
+
+    switch (result) {
+      case MediaPermissionResult.granted:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permisos de camara/fotos concedidos.')),
+        );
+      case MediaPermissionResult.denied:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permisos denegados. Puedes volver a intentarlo.')),
+        );
+      case MediaPermissionResult.permanentlyDenied:
+        final opened = await _permissionService.openSettings();
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              opened
+                  ? 'Permisos bloqueados. Revisa Configuracion de la app.'
+                  : 'No se pudo abrir Configuracion automaticamente.',
+            ),
+          ),
+        );
+    }
   }
 
   @override
@@ -170,6 +204,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   icon: const Icon(Icons.account_balance_wallet),
                   label: const Text('Ir a prestamos'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _validatePermissions,
+                  icon: const Icon(Icons.security),
+                  label: const Text('Validar permisos'),
                 ),
                 const SizedBox(height: 10),
                 const Text('Base de integracion lista para conectar modulos de negocio.'),

@@ -67,7 +67,12 @@ class CrediMercApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
       ),
-      home: _BootstrapGate(sessionController: sessionController),
+      home: _BootstrapGate(
+        sessionController: sessionController,
+        customersApi: customersApi,
+        loansApi: loansApi,
+        paymentsApi: paymentsApi,
+      ),
     );
   }
 }
@@ -75,9 +80,15 @@ class CrediMercApp extends StatelessWidget {
 class _BootstrapGate extends StatefulWidget {
   const _BootstrapGate({
     required this.sessionController,
+    required this.customersApi,
+    required this.loansApi,
+    required this.paymentsApi,
   });
 
   final SessionController sessionController;
+  final CustomersApi customersApi;
+  final LoansApi loansApi;
+  final PaymentsApi paymentsApi;
 
   @override
   State<_BootstrapGate> createState() => _BootstrapGateState();

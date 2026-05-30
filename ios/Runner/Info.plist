@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CrediMerc necesita acceso a la camara para capturar documentos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CrediMerc necesita acceso a fotos para adjuntar documentos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CrediMerc necesita guardar capturas de documentos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
