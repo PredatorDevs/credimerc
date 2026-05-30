@@ -29,18 +29,30 @@ class Loan {
 
   factory Loan.fromMap(Map<String, dynamic> map) {
     return Loan(
-      id: (map['id'] as num?)?.toInt() ?? 0,
+      id: _asInt(map['id']),
       publicId: map['public_id']?.toString() ?? '',
       loanNumber: map['loan_number']?.toString() ?? '-',
-      customerId: (map['customer_id'] as num?)?.toInt() ?? 0,
+      customerId: _asInt(map['customer_id']),
       customerName: map['customer_name']?.toString() ?? '-',
-      principalAmount: (map['principal_amount'] as num?)?.toDouble() ?? 0,
-      interestRate: (map['interest_rate'] as num?)?.toDouble() ?? 0,
-      totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
-      balanceAmount: (map['balance_amount'] as num?)?.toDouble() ?? 0,
+      principalAmount: _asDouble(map['principal_amount']),
+      interestRate: _asDouble(map['interest_rate']),
+      totalAmount: _asDouble(map['total_amount']),
+      balanceAmount: _asDouble(map['balance_amount']),
       startDate: map['start_date']?.toString() ?? '',
       dueDate: map['due_date']?.toString() ?? '',
       status: map['status']?.toString() ?? 'UNKNOWN',
     );
+  }
+
+  static int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _asDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

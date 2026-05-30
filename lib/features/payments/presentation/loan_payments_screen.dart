@@ -298,11 +298,11 @@ class _CreatePaymentSheetState extends State<_CreatePaymentSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo registrar el pago.')),
+        SnackBar(content: Text('No se pudo registrar el pago: $error')),
       );
     }
   }
