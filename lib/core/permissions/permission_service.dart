@@ -7,12 +7,36 @@ enum MediaPermissionResult {
 }
 
 class PermissionService {
+  Future<MediaPermissionResult> requestCameraPermission() async {
+    final cameraStatus = await Permission.camera.request();
+    return _mapResult(<PermissionStatus>[cameraStatus]);
+  }
+
+  Future<MediaPermissionResult> requestPhotosPermission() async {
+    final photosStatus = await Permission.photos.request();
+    if (photosStatus == PermissionStatus.granted || photosStatus == PermissionStatus.limited) {
+      return MediaPermissionResult.granted;
+    }
+
+    final storageStatus = await Permission.storage.request();
+    return _mapResult(<PermissionStatus>[photosStatus, storageStatus]);
+  }
+
   Future<MediaPermissionResult> requestMediaPermissions() async {
     final cameraStatus = await Permission.camera.request();
-    final photosStatus = await Permission.photos.request();
+    final photosResult = await requestPhotosPermission();
+    if (photosResult != MediaPermissionResult.granted) {
+      return photosResult;
+    }
 
-    final statuses = <PermissionStatus>[cameraStatus, photosStatus];
+    return _mapResult(<PermissionStatus>[cameraStatus]);
+  }
 
+  Future<bool> openSettings() {
+    return openAppSettings();
+  }
+
+  MediaPermissionResult _mapResult(List<PermissionStatus> statuses) {
     final allGranted = statuses.every(
       (PermissionStatus status) =>
           status == PermissionStatus.granted || status == PermissionStatus.limited,
@@ -29,9 +53,5 @@ class PermissionService {
     }
 
     return MediaPermissionResult.denied;
-  }
-
-  Future<bool> openSettings() {
-    return openAppSettings();
   }
 }

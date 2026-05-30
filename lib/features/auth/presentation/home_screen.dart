@@ -5,6 +5,7 @@ import '../../../core/session/session_controller.dart';
 import '../../customers/data/customers_api.dart';
 import '../../customers/presentation/customers_screen.dart';
 import '../../companies/data/company_membership.dart';
+import '../../files/data/files_api.dart';
 import '../../loans/data/loans_api.dart';
 import '../../loans/presentation/loans_screen.dart';
 import '../../payments/data/payments_api.dart';
@@ -14,14 +15,18 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.sessionController,
     required this.customersApi,
+    required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
+    required this.permissionService,
   });
 
   final SessionController sessionController;
   final CustomersApi customersApi;
+  final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
+  final PermissionService permissionService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -29,7 +34,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int? _selectedCompanyId;
-  final PermissionService _permissionService = PermissionService();
 
   @override
   void initState() {
@@ -64,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _validatePermissions() async {
-    final result = await _permissionService.requestMediaPermissions();
+    final result = await widget.permissionService.requestMediaPermissions();
     if (!mounted) {
       return;
     }
@@ -79,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SnackBar(content: Text('Permisos denegados. Puedes volver a intentarlo.')),
         );
       case MediaPermissionResult.permanentlyDenied:
-        final opened = await _permissionService.openSettings();
+        final opened = await widget.permissionService.openSettings();
         if (!mounted) {
           return;
         }
@@ -183,7 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => CustomersScreen(customersApi: widget.customersApi),
+                        builder: (_) => CustomersScreen(
+                          customersApi: widget.customersApi,
+                          filesApi: widget.filesApi,
+                          permissionService: widget.permissionService,
+                        ),
                       ),
                     );
                   },

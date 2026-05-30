@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/permissions/permission_service.dart';
+import '../../files/data/files_api.dart';
+import '../../files/presentation/customer_attachments_screen.dart';
 import '../data/customer_model.dart';
 import '../data/customers_api.dart';
 
@@ -8,9 +11,13 @@ class CustomersScreen extends StatefulWidget {
   const CustomersScreen({
     super.key,
     required this.customersApi,
+    required this.filesApi,
+    required this.permissionService,
   });
 
   final CustomersApi customersApi;
+  final FilesApi filesApi;
+  final PermissionService permissionService;
 
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
@@ -156,6 +163,17 @@ class _CustomersScreenState extends State<CustomersScreen> {
             'Tel: ${customer.phone ?? '-'} | Doc: ${customer.documentNumber ?? '-'}',
           ),
           trailing: Chip(label: Text(customer.status)),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CustomerAttachmentsScreen(
+                  customer: customer,
+                  filesApi: widget.filesApi,
+                  permissionService: widget.permissionService,
+                ),
+              ),
+            );
+          },
         );
       },
     );
