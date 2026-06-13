@@ -12,6 +12,8 @@ import '../../files/data/files_api.dart';
 import '../../loans/data/loans_api.dart';
 import '../../loans/presentation/loans_screen.dart';
 import '../../payments/data/payments_api.dart';
+import '../../reports/data/reports_api.dart';
+import '../../reports/presentation/reports_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -23,6 +25,7 @@ class HomeScreen extends StatefulWidget {
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
+    required this.reportsApi,
     required this.permissionService,
   });
 
@@ -33,6 +36,7 @@ class HomeScreen extends StatefulWidget {
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
+  final ReportsApi reportsApi;
   final PermissionService permissionService;
 
   @override
@@ -127,6 +131,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final canCreatePayment = permissions.contains('payments.create');
         final canVoidPayment = permissions.contains('payments.void');
         final canManageRoles = permissions.contains('roles.manage');
+        final canViewReports = permissions.contains('reports.view');
+        final canViewCustomerAttachments = permissions.contains('files.profile.view');
+        final allowedUploadCategories = <String>{
+          if (permissions.contains('files.profile.upload')) 'PROFILE_PHOTO',
+          if (permissions.contains('files.id.upload')) ...<String>['ID_FRONT', 'ID_BACK', 'SELFIE_VERIFICATION'],
+          if (permissions.contains('files.supporting.upload')) 'SUPPORTING_DOCUMENT',
+        };
         final companies = widget.sessionController.companies;
         final activeCompanyId = widget.sessionController.activeCompanyId;
         final fullName = user['fullName']?.toString().trim().isNotEmpty == true
@@ -246,6 +257,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     filesApi: widget.filesApi,
                                     permissionService: widget.permissionService,
                                     canCreateCustomer: canCreateCustomer,
+                                    canViewCustomerAttachments: canViewCustomerAttachments,
+                                    allowedUploadCategories: allowedUploadCategories,
                                   ),
                                 ),
                               );
@@ -300,8 +313,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.folder_open_outlined,
                             title: 'Adjuntos',
                             description: 'Documentos, fotos e identidad.',
+                            enabled: true,
                             onTap: _validatePermissions,
                             emphasize: true,
+                          ),
+                          _ShortcutCard(
+                            icon: Icons.insert_chart_outlined,
+                            title: 'Reportes',
+                            description: 'KPIs de cartera, mora y cobranza.',
+                            lockedMessage: 'Sin permiso reports.view',
+                            enabled: canViewReports,
+                            onTap: canViewReports
+                                ? () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => ReportsScreen(reportsApi: widget.reportsApi),
+                                      ),
+                                    );
+                                  }
+                                : null,
                           ),
                           _ShortcutCard(
                             icon: Icons.admin_panel_settings_outlined,

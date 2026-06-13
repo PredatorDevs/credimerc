@@ -17,6 +17,7 @@ import 'features/customers/data/customers_api.dart';
 import 'features/files/data/files_api.dart';
 import 'features/loans/data/loans_api.dart';
 import 'features/payments/data/payments_api.dart';
+import 'features/reports/data/reports_api.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,7 @@ Future<void> main() async {
   final filesApi = FilesApi(dio: apiClient.dio);
   final loansApi = LoansApi(dio: apiClient.dio);
   final paymentsApi = PaymentsApi(dio: apiClient.dio);
+  final reportsApi = ReportsApi(dio: apiClient.dio);
   final permissionService = PermissionService();
   final sessionController = SessionController(
     authApi: authApi,
@@ -53,6 +55,7 @@ Future<void> main() async {
       filesApi: filesApi,
       loansApi: loansApi,
       paymentsApi: paymentsApi,
+      reportsApi: reportsApi,
       permissionService: permissionService,
     ),
   );
@@ -69,6 +72,7 @@ class CrediMercApp extends StatelessWidget {
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
+    required this.reportsApi,
     required this.permissionService,
   });
 
@@ -80,6 +84,7 @@ class CrediMercApp extends StatelessWidget {
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
+  final ReportsApi reportsApi;
   final PermissionService permissionService;
 
   @override
@@ -96,6 +101,7 @@ class CrediMercApp extends StatelessWidget {
         filesApi: filesApi,
         loansApi: loansApi,
         paymentsApi: paymentsApi,
+        reportsApi: reportsApi,
         permissionService: permissionService,
       ),
     );
@@ -111,6 +117,7 @@ class _BootstrapGate extends StatefulWidget {
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
+    required this.reportsApi,
     required this.permissionService,
   });
 
@@ -121,6 +128,7 @@ class _BootstrapGate extends StatefulWidget {
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
+  final ReportsApi reportsApi;
   final PermissionService permissionService;
 
   @override
@@ -165,6 +173,7 @@ class _BootstrapGateState extends State<_BootstrapGate> {
                 filesApi: widget.filesApi,
                 loansApi: widget.loansApi,
                 paymentsApi: widget.paymentsApi,
+                reportsApi: widget.reportsApi,
                 permissionService: widget.permissionService,
               );
             }

@@ -14,12 +14,16 @@ class CustomersScreen extends StatefulWidget {
     required this.filesApi,
     required this.permissionService,
     required this.canCreateCustomer,
+    required this.canViewCustomerAttachments,
+    required this.allowedUploadCategories,
   });
 
   final CustomersApi customersApi;
   final FilesApi filesApi;
   final PermissionService permissionService;
   final bool canCreateCustomer;
+  final bool canViewCustomerAttachments;
+  final Set<String> allowedUploadCategories;
 
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
@@ -197,17 +201,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
         final customer = _items[index];
         return _CustomerCard(
           customer: customer,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => CustomerAttachmentsScreen(
-                  customer: customer,
-                  filesApi: widget.filesApi,
-                  permissionService: widget.permissionService,
-                ),
-              ),
-            );
-          },
+          canOpenAttachments: widget.canViewCustomerAttachments,
+          onTap: widget.canViewCustomerAttachments
+              ? () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CustomerAttachmentsScreen(
+                        customer: customer,
+                        filesApi: widget.filesApi,
+                        permissionService: widget.permissionService,
+                        canViewAttachments: widget.canViewCustomerAttachments,
+                        allowedUploadCategories: widget.allowedUploadCategories,
+                      ),
+                    ),
+                  );
+                }
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No tienes permiso files.profile.view.')),
+                  );
+                },
         );
       },
     );
@@ -374,10 +387,12 @@ class _CustomerSearchCard extends StatelessWidget {
 class _CustomerCard extends StatelessWidget {
   const _CustomerCard({
     required this.customer,
+    required this.canOpenAttachments,
     required this.onTap,
   });
 
   final Customer customer;
+  final bool canOpenAttachments;
   final VoidCallback onTap;
 
   @override
@@ -452,7 +467,10 @@ class _CustomerCard extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
                 const SizedBox(height: 8),
-                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                Icon(
+                  canOpenAttachments ? Icons.chevron_right : Icons.lock_outline,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ],

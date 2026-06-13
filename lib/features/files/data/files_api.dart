@@ -76,6 +76,24 @@ class FilesApi {
     }
   }
 
+  Future<String> getDownloadUrl({
+    required int attachmentId,
+  }) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/files/$attachmentId/download-url');
+
+      final body = _unwrapBody(response.data ?? <String, dynamic>{});
+      final url = body['downloadUrl']?.toString() ?? '';
+      if (url.isEmpty) {
+        throw ApiException(message: 'No se pudo obtener la URL de descarga.');
+      }
+
+      return url;
+    } on DioException catch (error) {
+      throw _toApiException(error, 'No se pudo obtener la URL de descarga.');
+    }
+  }
+
   Future<AttachmentItem> _confirmUpload({
     required int id,
   }) async {
