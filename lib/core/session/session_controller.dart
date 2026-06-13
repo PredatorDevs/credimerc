@@ -88,6 +88,27 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<String?> register({
+    required String email,
+    required String password,
+    required String fullName,
+    String? phone,
+  }) async {
+    try {
+      await _authApi.register(
+        email: email,
+        password: password,
+        fullName: fullName,
+        phone: phone,
+      );
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } catch (_) {
+      return 'No fue posible crear la cuenta.';
+    }
+  }
+
   Future<void> logout() async {
     _setStatus(SessionStatus.loading);
 
@@ -140,6 +161,56 @@ class SessionController extends ChangeNotifier {
       _errorMessage = 'No fue posible cambiar de empresa.';
       _setStatus(SessionStatus.error);
       _setStatus(SessionStatus.authenticated);
+    }
+  }
+
+  Future<String?> createCompanyAndActivate({
+    required String name,
+    String? commercialName,
+    String? phone,
+    String? email,
+    String? address,
+  }) async {
+    try {
+      final companyId = await _companiesApi.createCompany(
+        name: name,
+        commercialName: commercialName,
+        phone: phone,
+        email: email,
+        address: address,
+      );
+
+      await selectCompany(companyId);
+      return _errorMessage;
+    } on ApiException catch (error) {
+      return error.message;
+    } catch (_) {
+      return 'No fue posible crear la empresa.';
+    }
+  }
+
+  Future<String?> requestPasswordReset(String email) async {
+    try {
+      await _authApi.forgotPassword(email: email);
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } catch (_) {
+      return 'No fue posible solicitar recuperacion de contrasena.';
+    }
+  }
+
+  Future<String?> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _authApi.resetPassword(token: token, newPassword: newPassword);
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } catch (_) {
+      return 'No fue posible restablecer la contrasena.';
     }
   }
 

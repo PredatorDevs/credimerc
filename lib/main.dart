@@ -6,10 +6,13 @@ import 'core/permissions/permission_service.dart';
 import 'core/session/session_controller.dart';
 import 'core/session/session_store.dart';
 import 'core/theme/app_theme.dart';
+import 'features/admin/data/company_users_api.dart';
+import 'features/admin/data/rbac_api.dart';
 import 'features/auth/data/auth_api.dart';
 import 'features/auth/presentation/home_screen.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/companies/data/companies_api.dart';
+import 'features/companies/presentation/company_onboarding_screen.dart';
 import 'features/customers/data/customers_api.dart';
 import 'features/files/data/files_api.dart';
 import 'features/loans/data/loans_api.dart';
@@ -29,6 +32,8 @@ Future<void> main() async {
   );
   final companiesApi = CompaniesApi(dio: apiClient.dio);
   final customersApi = CustomersApi(dio: apiClient.dio);
+  final companyUsersApi = CompanyUsersApi(dio: apiClient.dio);
+  final rbacApi = RbacApi(dio: apiClient.dio);
   final filesApi = FilesApi(dio: apiClient.dio);
   final loansApi = LoansApi(dio: apiClient.dio);
   final paymentsApi = PaymentsApi(dio: apiClient.dio);
@@ -43,6 +48,8 @@ Future<void> main() async {
       apiClient: apiClient,
       sessionController: sessionController,
       customersApi: customersApi,
+      companyUsersApi: companyUsersApi,
+      rbacApi: rbacApi,
       filesApi: filesApi,
       loansApi: loansApi,
       paymentsApi: paymentsApi,
@@ -57,6 +64,8 @@ class CrediMercApp extends StatelessWidget {
     required this.apiClient,
     required this.sessionController,
     required this.customersApi,
+    required this.companyUsersApi,
+    required this.rbacApi,
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
@@ -66,6 +75,8 @@ class CrediMercApp extends StatelessWidget {
   final ApiClient apiClient;
   final SessionController sessionController;
   final CustomersApi customersApi;
+  final CompanyUsersApi companyUsersApi;
+  final RbacApi rbacApi;
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
@@ -80,6 +91,8 @@ class CrediMercApp extends StatelessWidget {
       home: _BootstrapGate(
         sessionController: sessionController,
         customersApi: customersApi,
+        companyUsersApi: companyUsersApi,
+        rbacApi: rbacApi,
         filesApi: filesApi,
         loansApi: loansApi,
         paymentsApi: paymentsApi,
@@ -93,6 +106,8 @@ class _BootstrapGate extends StatefulWidget {
   const _BootstrapGate({
     required this.sessionController,
     required this.customersApi,
+    required this.companyUsersApi,
+    required this.rbacApi,
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
@@ -101,6 +116,8 @@ class _BootstrapGate extends StatefulWidget {
 
   final SessionController sessionController;
   final CustomersApi customersApi;
+  final CompanyUsersApi companyUsersApi;
+  final RbacApi rbacApi;
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
@@ -134,9 +151,17 @@ class _BootstrapGateState extends State<_BootstrapGate> {
           animation: widget.sessionController,
           builder: (context, _) {
             if (widget.sessionController.isAuthenticated) {
+              if (widget.sessionController.companies.isEmpty) {
+                return CompanyOnboardingScreen(
+                  sessionController: widget.sessionController,
+                );
+              }
+
               return HomeScreen(
                 sessionController: widget.sessionController,
                 customersApi: widget.customersApi,
+                companyUsersApi: widget.companyUsersApi,
+                rbacApi: widget.rbacApi,
                 filesApi: widget.filesApi,
                 loansApi: widget.loansApi,
                 paymentsApi: widget.paymentsApi,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../admin/data/company_users_api.dart';
+import '../../admin/data/rbac_api.dart';
+import '../../admin/presentation/admin_screen.dart';
 import '../../../core/permissions/permission_service.dart';
 import '../../../core/session/session_controller.dart';
 import '../../customers/data/customers_api.dart';
@@ -15,6 +18,8 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.sessionController,
     required this.customersApi,
+    required this.companyUsersApi,
+    required this.rbacApi,
     required this.filesApi,
     required this.loansApi,
     required this.paymentsApi,
@@ -23,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 
   final SessionController sessionController;
   final CustomersApi customersApi;
+  final CompanyUsersApi companyUsersApi;
+  final RbacApi rbacApi;
   final FilesApi filesApi;
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
@@ -264,6 +271,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             description: 'Documentos, fotos e identidad.',
                             onTap: _validatePermissions,
                             emphasize: true,
+                          ),
+                          _ShortcutCard(
+                            icon: Icons.admin_panel_settings_outlined,
+                            title: 'Administracion',
+                            description: 'Usuarios, roles y permisos del tenant.',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AdminScreen(
+                                    companyUsersApi: widget.companyUsersApi,
+                                    rbacApi: widget.rbacApi,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

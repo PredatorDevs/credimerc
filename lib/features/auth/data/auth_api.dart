@@ -101,6 +101,30 @@ class AuthApi {
     return next;
   }
 
+  Future<void> forgotPassword({required String email}) async {
+    await _postEnvelope<Map<String, dynamic>>(
+      '/auth/forgot-password',
+      data: {'email': email},
+      fromData: (raw) => raw is Map ? raw.cast<String, dynamic>() : <String, dynamic>{},
+      skipAuth: true,
+    );
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _postEnvelope<Map<String, dynamic>>(
+      '/auth/reset-password',
+      data: {
+        'token': token,
+        'newPassword': newPassword,
+      },
+      fromData: (raw) => raw is Map ? raw.cast<String, dynamic>() : <String, dynamic>{},
+      skipAuth: true,
+    );
+  }
+
   Future<ApiEnvelope<T>> _postEnvelope<T>(
     String path, {
     required Map<String, dynamic> data,
