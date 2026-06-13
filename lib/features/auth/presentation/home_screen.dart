@@ -286,18 +286,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onRefresh: widget.sessionController.refreshCompanies,
                       ),
                       const SizedBox(height: 18),
-                      _SectionHeader(
-                        title: 'Siguiente paso sugerido',
-                        subtitle: 'Una pequeña guia para seguir el flujo operativo sin perder contexto.',
-                      ),
-                      const SizedBox(height: 10),
-                      _ChecklistCard(
-                        items: const [
-                          'Crear o revisar clientes con documentos cargados.',
-                          'Abrir un prestamo y registrar su primer pago.',
-                          'Validar permisos antes de subir adjuntos.',
-                        ],
-                      ),
                     ],
                   ),
                 ],
