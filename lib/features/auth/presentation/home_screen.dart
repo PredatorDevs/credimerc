@@ -309,14 +309,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                                 : null,
                           ),
-                          _ShortcutCard(
-                            icon: Icons.folder_open_outlined,
-                            title: 'Adjuntos',
-                            description: 'Documentos, fotos e identidad.',
-                            enabled: true,
-                            onTap: _validatePermissions,
-                            emphasize: true,
-                          ),
+                          // _ShortcutCard(
+                          //   icon: Icons.folder_open_outlined,
+                          //   title: 'Adjuntos',
+                          //   description: 'Documentos, fotos e identidad.',
+                          //   enabled: true,
+                          //   onTap: _validatePermissions,
+                          //   emphasize: true,
+                          // ),
                           _ShortcutCard(
                             icon: Icons.insert_chart_outlined,
                             title: 'Reportes',
