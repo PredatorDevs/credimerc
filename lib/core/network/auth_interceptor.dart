@@ -23,7 +23,7 @@ class AuthInterceptor extends QueuedInterceptor {
   static const _kRetried = 'authRetried';
 
   Future<AuthSession?> _loadSession() async {
-    _cachedSession ??= await _sessionStore.read();
+    _cachedSession = await _sessionStore.read();
     return _cachedSession;
   }
 

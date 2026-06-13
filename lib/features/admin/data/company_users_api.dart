@@ -56,6 +56,8 @@ class CompanyUsersApi {
 
   Future<CompanyUser> inviteCompanyUser({
     required String email,
+    String? fullName,
+    String? phone,
     String? employeeCode,
     String? jobTitle,
     bool isOwner = false,
@@ -65,6 +67,8 @@ class CompanyUsersApi {
         '/company-users/invite',
         data: {
           'email': email,
+          'fullName': fullName,
+          'phone': phone,
           'employeeCode': employeeCode,
           'jobTitle': jobTitle,
           'isOwner': isOwner,
@@ -132,8 +136,23 @@ class CompanyUsersApi {
   ApiException _toApiException(DioException error, String fallbackMessage) {
     final payload = error.response?.data;
     if (payload is Map<String, dynamic>) {
+      final details = payload['details'];
+      String message = payload['message']?.toString() ?? fallbackMessage;
+
+      if (details is Map<String, dynamic>) {
+        final fieldErrors = details['fieldErrors'];
+        if (fieldErrors is Map<String, dynamic>) {
+          for (final value in fieldErrors.values) {
+            if (value is List && value.isNotEmpty) {
+              message = value.first.toString();
+              break;
+            }
+          }
+        }
+      }
+
       return ApiException(
-        message: payload['message']?.toString() ?? fallbackMessage,
+        message: message,
         code: payload['error']?.toString(),
         statusCode: error.response?.statusCode,
         details: payload['details'],

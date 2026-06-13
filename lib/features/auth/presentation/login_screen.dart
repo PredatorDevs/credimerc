@@ -535,6 +535,7 @@ class _RegisterDialogState extends State<_RegisterDialog> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -554,46 +555,58 @@ class _RegisterDialogState extends State<_RegisterDialog> {
     final confirmPassword = _confirmPasswordController.text;
 
     if (fullName.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa tu nombre completo.')),
-      );
+      setState(() {
+        _error = 'Ingresa tu nombre completo.';
+      });
       return;
     }
 
     if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa un correo valido.')),
-      );
+      setState(() {
+        _error = 'Ingresa un correo valido.';
+      });
       return;
     }
 
     if (password.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('La contrasena debe tener al menos 8 caracteres.')),
-      );
+      setState(() {
+        _error = 'La contrasena debe tener al menos 8 caracteres.';
+      });
       return;
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contrasenas no coinciden.')),
-      );
+      setState(() {
+        _error = 'Las contrasenas no coinciden.';
+      });
       return;
     }
 
-    setState(() => _submitting = true);
-    final error = await widget.sessionController.register(
-      email: email,
-      password: password,
-      fullName: fullName,
-      phone: phone.isEmpty ? null : phone,
-    );
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    String? error;
+    try {
+      error = await widget.sessionController.register(
+        email: email,
+        password: password,
+        fullName: fullName,
+        phone: phone.isEmpty ? null : phone,
+      );
+    } catch (exception) {
+      error = 'Error inesperado al crear cuenta: $exception';
+    }
 
     if (!mounted) return;
 
-    setState(() => _submitting = false);
+    setState(() {
+      _submitting = false;
+      _error = error;
+    });
+
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
@@ -650,6 +663,16 @@ class _RegisterDialogState extends State<_RegisterDialog> {
                 prefixIcon: Icon(Icons.lock_reset_outlined),
               ),
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
       ),

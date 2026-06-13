@@ -28,7 +28,7 @@ class AuthApi {
         'password': password,
         'fullName': fullName,
         'phone': phone,
-      },
+      }..removeWhere((key, value) => value == null || value == ''),
       fromData: (raw) => (raw as Map).cast<String, dynamic>(),
       skipAuth: true,
     );
@@ -184,8 +184,23 @@ class AuthApi {
   ApiException _toApiException(DioException error) {
     final payload = error.response?.data;
     if (payload is Map<String, dynamic>) {
+      final details = payload['details'];
+      String message = payload['message']?.toString() ?? 'Request failed.';
+
+      if (details is Map<String, dynamic>) {
+        final fieldErrors = details['fieldErrors'];
+        if (fieldErrors is Map<String, dynamic>) {
+          for (final value in fieldErrors.values) {
+            if (value is List && value.isNotEmpty) {
+              message = value.first.toString();
+              break;
+            }
+          }
+        }
+      }
+
       return ApiException(
-        message: payload['message']?.toString() ?? 'Request failed.',
+        message: message,
         code: payload['error']?.toString(),
         statusCode: error.response?.statusCode,
         details: payload['details'],

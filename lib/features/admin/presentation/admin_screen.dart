@@ -464,13 +464,18 @@ class _InviteCompanyUserDialog extends StatefulWidget {
 }
 
 class _InviteCompanyUserDialogState extends State<_InviteCompanyUserDialog> {
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _employeeCodeController = TextEditingController();
   final _jobTitleController = TextEditingController();
   bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
+    _fullNameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _employeeCodeController.dispose();
     _jobTitleController.dispose();
@@ -480,17 +485,22 @@ class _InviteCompanyUserDialogState extends State<_InviteCompanyUserDialog> {
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa un correo valido.')),
-      );
+      setState(() {
+        _error = 'Ingresa un correo valido.';
+      });
       return;
     }
 
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
 
     try {
       await widget.companyUsersApi.inviteCompanyUser(
         email: email,
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
         employeeCode: _employeeCodeController.text.trim(),
         jobTitle: _jobTitleController.text.trim(),
       );
@@ -499,8 +509,16 @@ class _InviteCompanyUserDialogState extends State<_InviteCompanyUserDialog> {
       Navigator.of(context).pop(true);
     } on ApiException catch (error) {
       if (!mounted) return;
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() {
+        _submitting = false;
+        _error = error.message;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = 'No se pudo invitar al usuario: $error';
+      });
     }
   }
 
@@ -513,9 +531,19 @@ class _InviteCompanyUserDialogState extends State<_InviteCompanyUserDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              controller: _fullNameController,
+              decoration: const InputDecoration(labelText: 'Nombre completo (opcional)'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: 'Correo'),
               keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _phoneController,
+              decoration: const InputDecoration(labelText: 'Telefono (opcional)'),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -527,6 +555,16 @@ class _InviteCompanyUserDialogState extends State<_InviteCompanyUserDialog> {
               controller: _jobTitleController,
               decoration: const InputDecoration(labelText: 'Cargo (opcional)'),
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
       ),
