@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/permissions/permission_service.dart';
@@ -47,6 +48,8 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
   bool _uploading = false;
   String? _error;
   final Map<int, String> _downloadUrls = <int, String>{};
+  Timer? _autoRefreshTimer;
+  int _autoRefreshTicks = 0;
 
   @override
   void initState() {
@@ -67,10 +70,53 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
       .where((category) => widget.allowedUploadCategories.contains(category))
       .toList(growable: false);
 
-  Future<void> _loadFiles() async {
+  bool get _hasPendingUploads => _items.any((item) => item.status == 'UPLOADING');
+
+  @override
+  void dispose() {
+    _stopAutoRefresh();
+    super.dispose();
+  }
+
+  void _startAutoRefreshIfNeeded() {
+    if (!_hasPendingUploads) {
+      _stopAutoRefresh();
+      return;
+    }
+
+    if (_autoRefreshTimer != null) {
+      return;
+    }
+
+    _autoRefreshTicks = 0;
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        _stopAutoRefresh();
+        return;
+      }
+
+      _autoRefreshTicks += 1;
+      if (_autoRefreshTicks > 8) {
+        _stopAutoRefresh();
+        return;
+      }
+
+      _loadFiles(silent: true);
+    });
+  }
+
+  void _stopAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+    _autoRefreshTicks = 0;
+  }
+
+  Future<void> _loadFiles({bool silent = false}) async {
     setState(() {
-      _loading = true;
-      _error = null;
+      if (!silent) {
+        _loading = true;
+        _error = null;
+      }
     });
 
     try {
@@ -84,18 +130,21 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
         _items = items;
         _loading = false;
       });
+      _startAutoRefreshIfNeeded();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.message;
         _loading = false;
       });
+      _stopAutoRefresh();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'No fue posible cargar adjuntos.';
         _loading = false;
       });
+      _stopAutoRefresh();
     }
   }
 
@@ -175,18 +224,21 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
         const SnackBar(content: Text('Adjunto subido correctamente.')),
       );
       await _loadFiles();
+      setState(() => _uploading = false);
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
       setState(() => _uploading = false);
+      await _loadFiles(silent: true);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo subir el adjunto.')),
       );
       setState(() => _uploading = false);
+      await _loadFiles(silent: true);
     }
   }
 
@@ -214,6 +266,33 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
+                if (_uploading || _hasPendingUploads)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4D6),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFFD98A)),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _uploading
+                                ? 'Subiendo archivo...'
+                                : 'Hay adjuntos pendientes de confirmacion. Actualizando automaticamente.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 DropdownButtonFormField<String>(
                   value: availableCategories.contains(_selectedCategory)
                       ? _selectedCategory
@@ -305,6 +384,21 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
     if (_isImageAttachment(item)) return Icons.image_outlined;
     if (_isPdfAttachment(item)) return Icons.picture_as_pdf_outlined;
     return Icons.description_outlined;
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'ACTIVE':
+        return const Color(0xFF1F9D6A);
+      case 'UPLOADING':
+        return const Color(0xFFB7791F);
+      case 'REJECTED':
+        return const Color(0xFFCC3333);
+      case 'DELETED':
+        return const Color(0xFF666666);
+      default:
+        return const Color(0xFF46607A);
+    }
   }
 
   Future<String?> _resolveDownloadUrl(int attachmentId) async {
@@ -533,6 +627,7 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
         final item = _items[index];
         final canPreviewImage = _isImageAttachment(item);
         final canPreviewAny = _isPreviewableAttachment(item);
+        final isActive = item.status == 'ACTIVE';
         final createdAt = item.createdAt;
         final createdAtLabel = createdAt == null
             ? '-'
@@ -548,13 +643,22 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
           ),
           trailing: Wrap(
             spacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (canPreviewAny)
-                IconButton(
-                  tooltip: 'Vista previa',
-                  onPressed: () => _openPreview(item),
-                  icon: Icon(canPreviewImage ? Icons.visibility_outlined : Icons.open_in_new),
+              Chip(
+                label: Text(item.status),
+                backgroundColor: _statusColor(item.status).withOpacity(0.12),
+                labelStyle: TextStyle(
+                  color: _statusColor(item.status),
+                  fontWeight: FontWeight.w700,
                 ),
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                tooltip: isActive ? 'Vista previa' : 'Pendiente de confirmacion',
+                onPressed: canPreviewAny ? () => _openPreview(item) : null,
+                icon: Icon(canPreviewImage ? Icons.visibility_outlined : Icons.open_in_new),
+              ),
               if (item.status == 'ACTIVE')
                 IconButton(
                   tooltip: 'Copiar URL de descarga',
