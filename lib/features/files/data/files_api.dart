@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -192,26 +193,96 @@ class FilesApi {
     required String mimeType,
   }) async {
     try {
-      final response = await _uploadDio.put<void>(
+      final response = await _uploadDio.put<List<int>>(
         uploadUrl,
         data: bytes,
         options: Options(
           headers: <String, String>{'Content-Type': mimeType},
           validateStatus: (status) => status != null,
+          responseType: ResponseType.bytes,
         ),
       );
 
       if (response.statusCode == null || response.statusCode! < 200 || response.statusCode! >= 300) {
-        final status = response.statusCode;
-        throw ApiException(message: 'No se pudo subir el archivo al almacenamiento (HTTP ${status ?? '-'}).');
+        throw _buildStorageUploadException(
+          statusCode: response.statusCode,
+          responseData: response.data,
+          responseHeaders: response.headers,
+          sentMimeType: mimeType,
+        );
       }
     } on DioException catch (error) {
-      final status = error.response?.statusCode;
-      throw ApiException(
-        message: 'No se pudo subir el archivo al almacenamiento (HTTP ${status ?? '-'}).',
-        statusCode: status,
+      throw _buildStorageUploadException(
+        statusCode: error.response?.statusCode,
+        responseData: error.response?.data,
+        responseHeaders: error.response?.headers,
+        sentMimeType: mimeType,
       );
     }
+  }
+
+  ApiException _buildStorageUploadException({
+    required int? statusCode,
+    required dynamic responseData,
+    required Headers? responseHeaders,
+    required String sentMimeType,
+  }) {
+    final rawBody = _decodeResponseBody(responseData);
+    final storageCode = _xmlField(rawBody, 'Code');
+    final storageMessage = _xmlField(rawBody, 'Message');
+    final requestId = _xmlField(rawBody, 'RequestId');
+    final hostId = _xmlField(rawBody, 'HostId');
+    final responseContentType = responseHeaders?.value('content-type');
+
+    final summary = [
+      if (storageCode != null && storageCode.isNotEmpty) storageCode,
+      if (storageMessage != null && storageMessage.isNotEmpty) storageMessage,
+    ].join(': ');
+
+    final message = summary.isEmpty
+        ? 'No se pudo subir el archivo al almacenamiento (HTTP ${statusCode ?? '-'}).'
+        : 'No se pudo subir el archivo al almacenamiento (HTTP ${statusCode ?? '-'}). $summary';
+
+    return ApiException(
+      message: message,
+      statusCode: statusCode,
+      code: storageCode,
+      details: {
+        'statusCode': statusCode,
+        'storageCode': storageCode,
+        'storageMessage': storageMessage,
+        'requestId': requestId,
+        'hostId': hostId,
+        'sentMimeType': sentMimeType,
+        'responseContentType': responseContentType,
+        'responseSnippet': rawBody.length > 1000 ? rawBody.substring(0, 1000) : rawBody,
+      },
+    );
+  }
+
+  String _decodeResponseBody(dynamic data) {
+    if (data == null) return '';
+
+    if (data is List<int>) {
+      return utf8.decode(data, allowMalformed: true).trim();
+    }
+
+    if (data is Uint8List) {
+      return utf8.decode(data, allowMalformed: true).trim();
+    }
+
+    if (data is String) {
+      return data.trim();
+    }
+
+    return data.toString().trim();
+  }
+
+  String? _xmlField(String xml, String field) {
+    if (xml.isEmpty) return null;
+    final regex = RegExp('<$field>([\\s\\S]*?)</$field>', caseSensitive: false);
+    final match = regex.firstMatch(xml);
+    return match?.group(1)?.trim();
   }
 
   Map<String, dynamic> _unwrapBody(Map<String, dynamic> body) {
