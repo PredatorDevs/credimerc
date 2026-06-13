@@ -115,6 +115,18 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, _) {
         final profile = widget.sessionController.profile ?? <String, dynamic>{};
         final user = profile['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final permissions = (profile['permissions'] as List?)
+            ?.map((item) => item.toString())
+            .toSet() ??
+          <String>{};
+        final canViewCustomers = permissions.contains('customers.view');
+        final canCreateCustomer = permissions.contains('customers.create');
+        final canViewLoans = permissions.contains('loans.view');
+        final canCreateLoan = permissions.contains('loans.create');
+        final canViewPayments = permissions.contains('payments.view');
+        final canCreatePayment = permissions.contains('payments.create');
+        final canVoidPayment = permissions.contains('payments.void');
+        final canManageRoles = permissions.contains('roles.manage');
         final companies = widget.sessionController.companies;
         final activeCompanyId = widget.sessionController.activeCompanyId;
         final fullName = user['fullName']?.toString().trim().isNotEmpty == true
@@ -223,47 +235,66 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.people_alt_outlined,
                             title: 'Clientes',
                             description: 'Alta, busqueda y documentos.',
-                            onTap: () {
+                            lockedMessage: 'Sin permiso customers.view',
+                            enabled: canViewCustomers,
+                            onTap: canViewCustomers
+                                ? () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => CustomersScreen(
                                     customersApi: widget.customersApi,
                                     filesApi: widget.filesApi,
                                     permissionService: widget.permissionService,
+                                    canCreateCustomer: canCreateCustomer,
                                   ),
                                 ),
                               );
-                            },
+                            }
+                                : null,
                           ),
                           _ShortcutCard(
                             icon: Icons.account_balance_wallet_outlined,
                             title: 'Prestamos',
                             description: 'Crea, revisa y administra saldos.',
-                            onTap: () {
+                            lockedMessage: 'Sin permiso loans.view',
+                            enabled: canViewLoans,
+                            onTap: canViewLoans
+                                ? () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => LoansScreen(
                                     loansApi: widget.loansApi,
                                     paymentsApi: widget.paymentsApi,
+                                    canCreateLoan: canCreateLoan,
+                                    canCreatePayment: canCreatePayment,
+                                    canVoidPayment: canVoidPayment,
                                   ),
                                 ),
                               );
-                            },
+                            }
+                                : null,
                           ),
                           _ShortcutCard(
                             icon: Icons.payments_outlined,
                             title: 'Pagos',
                             description: 'Registra y anula abonos rapido.',
-                            onTap: () {
+                            lockedMessage: 'Sin permiso payments.view',
+                            enabled: canViewPayments,
+                            onTap: canViewPayments
+                                ? () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => LoansScreen(
                                     loansApi: widget.loansApi,
                                     paymentsApi: widget.paymentsApi,
+                                    canCreateLoan: canCreateLoan,
+                                    canCreatePayment: canCreatePayment,
+                                    canVoidPayment: canVoidPayment,
                                   ),
                                 ),
                               );
-                            },
+                            }
+                                : null,
                           ),
                           _ShortcutCard(
                             icon: Icons.folder_open_outlined,
@@ -276,7 +307,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             icon: Icons.admin_panel_settings_outlined,
                             title: 'Administracion',
                             description: 'Usuarios, roles y permisos del tenant.',
-                            onTap: () {
+                            lockedMessage: 'Sin permiso roles.manage',
+                            enabled: canManageRoles,
+                            onTap: canManageRoles
+                                ? () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => AdminScreen(
@@ -285,7 +319,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               );
-                            },
+                            }
+                                : null,
                           ),
                         ],
                       ),
@@ -483,13 +518,17 @@ class _ShortcutCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onTap,
+    required this.enabled,
+    this.lockedMessage,
     this.emphasize = false,
   });
 
   final IconData icon;
   final String title;
   final String description;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool enabled;
+  final String? lockedMessage;
   final bool emphasize;
 
   @override
@@ -502,7 +541,9 @@ class _ShortcutCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(emphasize ? 0.92 : 0.84),
+          color: enabled
+              ? Colors.white.withOpacity(emphasize ? 0.92 : 0.84)
+              : Colors.white.withOpacity(0.70),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: emphasize ? colorScheme.secondary.withOpacity(0.28) : const Color(0xFFE2ECE7),
@@ -526,7 +567,11 @@ class _ShortcutCard extends StatelessWidget {
                 color: emphasize ? colorScheme.secondary.withOpacity(0.18) : colorScheme.primary.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: colorScheme.onSurface, size: 22),
+              child: Icon(
+                enabled ? icon : Icons.lock_outline,
+                color: colorScheme.onSurface,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -537,7 +582,7 @@ class _ShortcutCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              description,
+              enabled ? description : (lockedMessage ?? 'Sin permiso para esta accion.'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.35,

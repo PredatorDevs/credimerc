@@ -10,10 +10,14 @@ class LoanPaymentsScreen extends StatefulWidget {
     super.key,
     required this.loan,
     required this.paymentsApi,
+    required this.canCreatePayment,
+    required this.canVoidPayment,
   });
 
   final Loan loan;
   final PaymentsApi paymentsApi;
+  final bool canCreatePayment;
+  final bool canVoidPayment;
 
   @override
   State<LoanPaymentsScreen> createState() => _LoanPaymentsScreenState();
@@ -172,11 +176,13 @@ class _LoanPaymentsScreenState extends State<LoanPaymentsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreatePaymentSheet,
-        icon: const Icon(Icons.attach_money),
-        label: const Text('Registrar pago'),
-      ),
+      floatingActionButton: widget.canCreatePayment
+          ? FloatingActionButton.extended(
+              onPressed: _openCreatePaymentSheet,
+              icon: const Icon(Icons.attach_money),
+              label: const Text('Registrar pago'),
+            )
+          : null,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -197,7 +203,7 @@ class _LoanPaymentsScreenState extends State<LoanPaymentsScreen> {
                 loan: widget.loan,
                 paymentCount: _items.length,
                 onRefresh: _loadPayments,
-                onCreatePayment: _openCreatePaymentSheet,
+                onCreatePayment: widget.canCreatePayment ? _openCreatePaymentSheet : null,
               ),
               const SizedBox(height: 18),
               const _SectionHeader(
@@ -249,9 +255,11 @@ class _LoanPaymentsScreenState extends State<LoanPaymentsScreen> {
       return _EmptyStateCard(
         icon: Icons.payments_outlined,
         title: 'Aun no hay pagos registrados',
-        message: 'Registra el primer pago para comenzar a ver el movimiento de este prestamo.',
-        actionLabel: 'Registrar pago',
-        onAction: _openCreatePaymentSheet,
+        message: widget.canCreatePayment
+            ? 'Registra el primer pago para comenzar a ver el movimiento de este prestamo.'
+            : 'No tienes permiso para registrar pagos. Solicita acceso payments.create.',
+        actionLabel: widget.canCreatePayment ? 'Registrar pago' : 'Recargar',
+        onAction: widget.canCreatePayment ? _openCreatePaymentSheet : _loadPayments,
       );
     }
 
@@ -267,6 +275,7 @@ class _LoanPaymentsScreenState extends State<LoanPaymentsScreen> {
         return _PaymentCard(
           payment: payment,
           isVoided: isVoided,
+          canVoid: widget.canVoidPayment,
           onVoid: () => _voidPayment(payment),
         );
       },
@@ -285,7 +294,7 @@ class _LoanHeroCard extends StatelessWidget {
   final Loan loan;
   final int paymentCount;
   final VoidCallback onRefresh;
-  final VoidCallback onCreatePayment;
+  final VoidCallback? onCreatePayment;
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +371,7 @@ class _LoanHeroCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onCreatePayment,
                 icon: const Icon(Icons.attach_money),
-                label: const Text('Registrar pago'),
+                label: Text(onCreatePayment != null ? 'Registrar pago' : 'Sin permiso'),
               ),
               OutlinedButton.icon(
                 onPressed: onRefresh,
@@ -453,11 +462,13 @@ class _PaymentCard extends StatelessWidget {
   const _PaymentCard({
     required this.payment,
     required this.isVoided,
+    required this.canVoid,
     required this.onVoid,
   });
 
   final Payment payment;
   final bool isVoided;
+  final bool canVoid;
   final VoidCallback onVoid;
 
   @override
@@ -561,11 +572,13 @@ class _PaymentCard extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: isVoided
                 ? const Chip(label: Text('Anulado'))
-                : FilledButton.tonalIcon(
+                : canVoid
+                    ? FilledButton.tonalIcon(
                     onPressed: onVoid,
                     icon: const Icon(Icons.block),
                     label: const Text('Anular'),
-                  ),
+                  )
+                    : const Chip(label: Text('Sin permiso')), 
           ),
         ],
       ),

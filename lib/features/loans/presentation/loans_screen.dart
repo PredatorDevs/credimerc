@@ -12,10 +12,16 @@ class LoansScreen extends StatefulWidget {
     super.key,
     required this.loansApi,
     required this.paymentsApi,
+    required this.canCreateLoan,
+    required this.canCreatePayment,
+    required this.canVoidPayment,
   });
 
   final LoansApi loansApi;
   final PaymentsApi paymentsApi;
+  final bool canCreateLoan;
+  final bool canCreatePayment;
+  final bool canVoidPayment;
 
   @override
   State<LoansScreen> createState() => _LoansScreenState();
@@ -78,11 +84,13 @@ class _LoansScreenState extends State<LoansScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreateModal,
-        icon: const Icon(Icons.add_card),
-        label: const Text('Nuevo prestamo'),
-      ),
+      floatingActionButton: widget.canCreateLoan
+          ? FloatingActionButton.extended(
+              onPressed: _openCreateModal,
+              icon: const Icon(Icons.add_card),
+              label: const Text('Nuevo prestamo'),
+            )
+          : null,
       appBar: AppBar(
         title: const Text('Prestamos'),
         actions: [
@@ -114,7 +122,7 @@ class _LoansScreenState extends State<LoansScreen> {
                 totalBalance: _items.fold<double>(0, (sum, item) => sum + item.balanceAmount),
                 overdueCount: _items.where((item) => item.status == 'OVERDUE').length,
                 onRefresh: _loadLoans,
-                onCreateLoan: _openCreateModal,
+                onCreateLoan: widget.canCreateLoan ? _openCreateModal : null,
               ),
               const SizedBox(height: 18),
               _SectionHeader(
@@ -152,9 +160,11 @@ class _LoansScreenState extends State<LoansScreen> {
       return _EmptyStateCard(
         icon: Icons.account_balance_wallet_outlined,
         title: 'Aun no hay prestamos',
-        message: 'Crea el primer préstamo para iniciar la cartera y registrar pagos.',
-        actionLabel: 'Nuevo prestamo',
-        onAction: _openCreateModal,
+        message: widget.canCreateLoan
+            ? 'Crea el primer préstamo para iniciar la cartera y registrar pagos.'
+            : 'No tienes permiso para crear prestamos. Solicita acceso loans.create.',
+        actionLabel: widget.canCreateLoan ? 'Nuevo prestamo' : 'Recargar',
+        onAction: widget.canCreateLoan ? _openCreateModal : _loadLoans,
       );
     }
 
@@ -173,6 +183,8 @@ class _LoansScreenState extends State<LoansScreen> {
                 builder: (_) => LoanPaymentsScreen(
                   loan: loan,
                   paymentsApi: widget.paymentsApi,
+                  canCreatePayment: widget.canCreatePayment,
+                  canVoidPayment: widget.canVoidPayment,
                 ),
               ),
             );
@@ -196,7 +208,7 @@ class _LoansHeroCard extends StatelessWidget {
   final double totalBalance;
   final int overdueCount;
   final VoidCallback onRefresh;
-  final VoidCallback onCreateLoan;
+  final VoidCallback? onCreateLoan;
 
   @override
   Widget build(BuildContext context) {
@@ -271,7 +283,7 @@ class _LoansHeroCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCreateLoan,
                   icon: const Icon(Icons.add_card),
-                  label: const Text('Nuevo prestamo'),
+                  label: Text(onCreateLoan != null ? 'Nuevo prestamo' : 'Sin permiso'),
                 ),
               ),
               const SizedBox(width: 12),

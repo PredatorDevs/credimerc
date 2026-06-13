@@ -13,11 +13,13 @@ class CustomersScreen extends StatefulWidget {
     required this.customersApi,
     required this.filesApi,
     required this.permissionService,
+    required this.canCreateCustomer,
   });
 
   final CustomersApi customersApi;
   final FilesApi filesApi;
   final PermissionService permissionService;
+  final bool canCreateCustomer;
 
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
@@ -100,11 +102,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreateModal,
-        icon: const Icon(Icons.person_add),
-        label: const Text('Nuevo cliente'),
-      ),
+      floatingActionButton: widget.canCreateCustomer
+          ? FloatingActionButton.extended(
+              onPressed: _openCreateModal,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Nuevo cliente'),
+            )
+          : null,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -124,7 +128,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               _CustomersHeroCard(
                 totalCustomers: _items.length,
                 onRefresh: _loadCustomers,
-                onCreateCustomer: _openCreateModal,
+                onCreateCustomer: widget.canCreateCustomer ? _openCreateModal : null,
               ),
               const SizedBox(height: 18),
               const _SectionHeader(
@@ -176,9 +180,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
       return _EmptyStateCard(
         icon: Icons.people_outline,
         title: 'Aun no hay clientes',
-        message: 'Crea el primer cliente para empezar a administrar adjuntos y cartera.',
-        actionLabel: 'Nuevo cliente',
-        onAction: _openCreateModal,
+        message: widget.canCreateCustomer
+            ? 'Crea el primer cliente para empezar a administrar adjuntos y cartera.'
+            : 'No tienes permiso para crear clientes. Solicita acceso customers.create.',
+        actionLabel: widget.canCreateCustomer ? 'Nuevo cliente' : 'Recargar',
+        onAction: widget.canCreateCustomer ? _openCreateModal : _loadCustomers,
       );
     }
 
@@ -217,7 +223,7 @@ class _CustomersHeroCard extends StatelessWidget {
 
   final int totalCustomers;
   final VoidCallback onRefresh;
-  final VoidCallback onCreateCustomer;
+  final VoidCallback? onCreateCustomer;
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +288,7 @@ class _CustomersHeroCard extends StatelessWidget {
             children: [
               _MiniStatPill(label: 'Registrados', value: '$totalCustomers'),
               const _MiniStatPill(label: 'Adjuntos', value: 'Perfil / ID'),
-              const _MiniStatPill(label: 'Accion', value: 'Nuevo cliente'),
+              _MiniStatPill(label: 'Accion', value: onCreateCustomer != null ? 'Nuevo cliente' : 'Solo consulta'),
             ],
           ),
           const SizedBox(height: 16),
@@ -292,7 +298,7 @@ class _CustomersHeroCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCreateCustomer,
                   icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Nuevo cliente'),
+                  label: Text(onCreateCustomer != null ? 'Nuevo cliente' : 'Sin permiso'),
                 ),
               ),
               const SizedBox(width: 12),
