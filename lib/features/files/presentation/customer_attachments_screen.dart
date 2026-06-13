@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -228,7 +229,15 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
+        SnackBar(
+          content: Text(error.message),
+          action: _hasUploadDebug(error)
+              ? SnackBarAction(
+                  label: 'Ver debug',
+                  onPressed: () => _showUploadDebugDialog(error),
+                )
+              : null,
+        ),
       );
       setState(() => _uploading = false);
       await _loadFiles(silent: true);
@@ -240,6 +249,53 @@ class _CustomerAttachmentsScreenState extends State<CustomerAttachmentsScreen> {
       setState(() => _uploading = false);
       await _loadFiles(silent: true);
     }
+  }
+
+  bool _hasUploadDebug(ApiException error) {
+    final details = error.details;
+    return details is Map && details.isNotEmpty;
+  }
+
+  Future<void> _showUploadDebugDialog(ApiException error) async {
+    final details = error.details;
+    if (details is! Map) {
+      return;
+    }
+
+    final normalized = <String, dynamic>{};
+    for (final entry in details.entries) {
+      normalized[entry.key.toString()] = entry.value;
+    }
+
+    final debugText = const JsonEncoder.withIndent('  ').convert(normalized);
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Debug de subida'),
+        content: SingleChildScrollView(
+          child: SelectableText(debugText),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: debugText));
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Debug copiado al portapapeles.')),
+              );
+            },
+            child: const Text('Copiar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
