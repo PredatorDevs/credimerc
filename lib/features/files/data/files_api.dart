@@ -52,8 +52,9 @@ class FilesApi {
     required String fileName,
     required Uint8List bytes,
   }) async {
+    UploadTicket? ticket;
     try {
-      final ticket = await _createUploadUrl(
+      ticket = await _createUploadUrl(
         ownerType: ownerType,
         ownerId: ownerId,
         category: category,
@@ -68,10 +69,22 @@ class FilesApi {
         mimeType: mimeType,
       );
 
-      return await _confirmUpload(id: ticket.id);
+      return await _confirmUploadWithRetry(id: ticket.id);
     } on ApiException {
+      if (ticket != null) {
+        await _abortUpload(
+          id: ticket.id,
+          reason: 'Client upload failed before confirmation.',
+        );
+      }
       rethrow;
     } catch (error) {
+      if (ticket != null) {
+        await _abortUpload(
+          id: ticket.id,
+          reason: 'Client upload failed before confirmation.',
+        );
+      }
       throw ApiException(message: 'No se pudo subir el adjunto.');
     }
   }
@@ -110,6 +123,41 @@ class FilesApi {
     }
   }
 
+  Future<AttachmentItem> _confirmUploadWithRetry({
+    required int id,
+  }) async {
+    ApiException? lastError;
+    for (int attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await _confirmUpload(id: id);
+      } on ApiException catch (error) {
+        lastError = error;
+        final message = error.message.toLowerCase();
+        final isMissingObject = message.contains('object not found in s3') || message.contains('upload must complete');
+        if (!isMissingObject || attempt == 3) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+      }
+    }
+
+    throw lastError ?? ApiException(message: 'No se pudo confirmar el adjunto.');
+  }
+
+  Future<void> _abortUpload({
+    required int id,
+    required String reason,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/files/$id/abort',
+        data: {'reason': reason},
+      );
+    } catch (_) {
+      // Best effort cleanup; ignore errors.
+    }
+  }
+
   Future<UploadTicket> _createUploadUrl({
     required String ownerType,
     required int ownerId,
@@ -143,17 +191,26 @@ class FilesApi {
     required Uint8List bytes,
     required String mimeType,
   }) async {
-    final response = await _uploadDio.put<void>(
-      uploadUrl,
-      data: bytes,
-      options: Options(
-        headers: <String, String>{'Content-Type': mimeType},
-        validateStatus: (status) => status != null && status >= 200 && status < 300,
-      ),
-    );
+    try {
+      final response = await _uploadDio.put<void>(
+        uploadUrl,
+        data: bytes,
+        options: Options(
+          headers: <String, String>{'Content-Type': mimeType},
+          validateStatus: (status) => status != null,
+        ),
+      );
 
-    if (response.statusCode == null || response.statusCode! < 200 || response.statusCode! >= 300) {
-      throw ApiException(message: 'No se pudo subir el archivo al almacenamiento.');
+      if (response.statusCode == null || response.statusCode! < 200 || response.statusCode! >= 300) {
+        final status = response.statusCode;
+        throw ApiException(message: 'No se pudo subir el archivo al almacenamiento (HTTP ${status ?? '-'}).');
+      }
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      throw ApiException(
+        message: 'No se pudo subir el archivo al almacenamiento (HTTP ${status ?? '-'}).',
+        statusCode: status,
+      );
     }
   }
 
